@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>الثالثة إعدادي | مدارك التعليمية</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css"/>
+</head>
+<body data-level="third-middle">
+  <div class="bg-canvas">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+  </div>
+  <div class="bg-grid"></div>
+  <div id="toast"></div>
+  <nav id="navbar">
+    <div class="nav-inner">
+      <div class="nav-admin">
+        <div class="admin-badge" id="admin-badge">✅ مسؤول</div>
+        <button id="admin-login-btn" type="button">🔐 دخول المسؤول</button>
+      </div>
+      <div class="brand">
+        <div class="brand-logo">📚</div>
+        <div class="brand-name">مدارك <span>التعليمية</span></div>
+      </div>
+      <ul class="nav-links" id="nav-links">
+        <li><button class="nav-link active" type="button" id="nl-home">🏠 الرئيسية</button></li>
+        <li class="nav-dd">
+          <button class="nav-link" type="button" id="nl-lessons">📖 الدروس ▾</button>
+          <div class="dd-menu">
+            <a class="dd-link" href="#" id="nl-video">🎬 شرح بالفيديو</a>
+            <a class="dd-link" href="#" id="nl-pdf">📄 تحميل PDF</a>
+          </div>
+        </li>
+        <li class="nav-dd">
+          <button class="nav-link" type="button" id="nl-levels">📚 المستويات ▾</button>
+          <div class="dd-menu" id="levels-menu"></div>
+        </li>
+        <li><button class="nav-link" type="button" id="nl-ex">📝 سلاسل التمارين</button></li>
+        <li><button class="nav-link" type="button" id="nl-tests">📋 الامتحانات</button></li>
+      </ul>
+      <button class="hamburger" id="hamburger" type="button" aria-label="قائمة"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+  <main><div id="page"></div></main>
+  <div class="overlay" id="m-login">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-head"><span class="micon">🔐</span><h3>تسجيل دخول المسؤول</h3><p>أدخل بيانات الدخول للوصول إلى لوحة التحكم</p></div>
+      <div class="form-field"><label for="l-email">البريد الإلكتروني</label><input type="email" id="l-email" placeholder="admin@example.com" autocomplete="email"/></div>
+      <div class="form-field"><label for="l-pass">كلمة المرور</label><input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password"/></div>
+      <div class="modal-foot"><button class="btn btn-primary" type="button" id="btn-do-login">🚀 تسجيل الدخول</button><button class="btn btn-ghost" type="button" data-close="m-login">إلغاء</button></div>
+    </div>
+  </div>
+  <div class="overlay" id="m-video">
+    <div class="modal">
+      <div class="modal-head"><span class="micon">🎬</span><h3>إضافة فيديو جديد</h3></div>
+      <div class="form-field"><label>رابط YouTube <span style="color:var(--red)">*</span></label><input type="url" id="f-vurl" placeholder="https://www.youtube.com/watch?v=..."/><p class="field-hint">يدعم روابط youtube.com و youtu.be</p></div>
+      <div class="form-field"><label>عنوان الفيديو <span style="color:var(--red)">*</span></label><input type="text" id="f-vtitle" placeholder="أدخل عنوان الفيديو"/></div>
+      <div class="form-field"><label>وصف الفيديو</label><textarea id="f-vdesc" placeholder="وصف مختصر للدرس..."></textarea></div>
+      <div class="modal-foot"><button class="btn btn-primary" type="button" id="btn-submit-video">➕ إضافة الفيديو</button><button class="btn btn-ghost" type="button" data-close="m-video">إلغاء</button></div>
+    </div>
+  </div>
+  <div class="overlay" id="m-pdf">
+    <div class="modal">
+      <div class="modal-head"><span class="micon">📄</span><h3>رفع ملف PDF</h3></div>
+      <div class="form-field"><label>ملف PDF <span style="color:var(--red)">*</span></label><input type="file" id="f-pfile" accept=".pdf,application/pdf"/><p class="field-hint">الحد الأقصى للحجم: 20 ميجابايت</p></div>
+      <div class="form-field"><label>عنوان الملف <span style="color:var(--red)">*</span></label><input type="text" id="f-ptitle" placeholder="أدخل عنوان الملف"/></div>
+      <div class="form-field"><label>وصف الملف</label><textarea id="f-pdesc" placeholder="وصف مختصر..."></textarea></div>
+      <div class="modal-foot"><button class="btn btn-primary" type="button" id="btn-submit-pdf">📤 رفع الملف</button><button class="btn btn-ghost" type="button" data-close="m-pdf">إلغاء</button></div>
+    </div>
+  </div>
+  <div class="overlay" id="m-ex">
+    <div class="modal">
+      <div class="modal-head"><span class="micon">📝</span><h3>إضافة سلسلة تمارين</h3></div>
+      <div class="form-field"><label>ملف PDF (اختياري)</label><input type="file" id="f-exfile" accept=".pdf,application/pdf"/></div>
+      <div class="form-field"><label>العنوان <span style="color:var(--red)">*</span></label><input type="text" id="f-extitle" placeholder="مثال: سلسلة تمارين"/></div>
+      <div class="form-field"><label>الوصف</label><textarea id="f-exdesc" placeholder="وصف السلسلة..."></textarea></div>
+      <div class="modal-foot"><button class="btn btn-primary" type="button" id="btn-submit-ex">➕ إضافة</button><button class="btn btn-ghost" type="button" data-close="m-ex">إلغاء</button></div>
+    </div>
+  </div>
+  <div class="overlay" id="m-test">
+    <div class="modal">
+      <div class="modal-head"><span class="micon">📋</span><h3>إضافة امتحان تجريبي</h3></div>
+      <div class="form-field"><label>ملف PDF (اختياري)</label><input type="file" id="f-testfile" accept=".pdf,application/pdf"/></div>
+      <div class="form-field"><label>عنوان الامتحان <span style="color:var(--red)">*</span></label><input type="text" id="f-testtitle" placeholder="عنوان الامتحان"/></div>
+      <div class="form-field"><label>الوصف</label><textarea id="f-testdesc" placeholder="وصف الامتحان..."></textarea></div>
+      <div class="modal-foot"><button class="btn btn-primary" type="button" id="btn-submit-test">➕ إضافة</button><button class="btn btn-ghost" type="button" data-close="m-test">إلغاء</button></div>
+    </div>
+  </div>
+  <div class="overlay" id="m-chat-username">
+    <div class="modal" style="max-width:380px">
+      <div class="modal-head"><span class="micon">💬</span><h3>اختر اسمك الرمزي</h3><p>أدخل اسمًا يعرّفك في المحادثة (يُحفظ على هذا الجهاز فقط)</p></div>
+      <div class="form-field"><label for="chat-username-input">الاسم الرمزي</label><input type="text" id="chat-username-input" placeholder="مثال: أحمد" maxlength="32" autocomplete="off"/></div>
+      <div class="modal-foot"><button class="btn btn-primary" type="button" id="chat-username-submit">متابعة</button></div>
+    </div>
+  </div>
+  <div id="chat-widget">
+    <button id="chat-fab" type="button" aria-label="المحادثات">💬<span class="unread-badge" id="unread-badge"></span></button>
+    <div id="chat-box">
+      <div class="chat-layout">
+        <div class="chat-sidebar" id="chat-sidebar">
+          <div class="csb-head">👥 الأصدقاء</div>
+          <div class="ch-you-label" id="chat-you-label"></div>
+          <div class="csb-search"><input type="text" placeholder="بحث..." id="f-search"/></div>
+          <div class="friends-list" id="friends-list"></div>
+        </div>
+        <div class="chat-main" id="chat-main">
+          <div class="chat-no-sel"><span class="big">💬</span><p>اختر صديقًا لبدء المحادثة</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="img-pick" accept="image/png,image/jpeg,image/webp" style="display:none"/>
+  <input type="file" id="aud-pick" accept="audio/mpeg,audio/mp3,audio/ogg,audio/wav,audio/webm" style="display:none"/>
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/modals.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/navbar.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/bootstrap.js"></script>
+</body>
+</html>
