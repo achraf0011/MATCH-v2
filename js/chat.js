@@ -18,6 +18,7 @@
   var contacts = [];
   var convos = {};
   var MAX_RECORD_MS = 5 * 60 * 1000; // 5 min
+  var PROFILE_KEY = (window.APP_CONFIG && window.APP_CONFIG.STORAGE_KEYS.CHAT_PROFILE) || 'madarik_chat_profile';
   // cachedStream keeps mic open between recordings so browser never re-prompts permission
   var recState = { active: false, recorder: null, stream: null, cachedStream: null, chunks: [], timer: null };
   // Active message-type filter for the sidebar filter pills
@@ -346,8 +347,15 @@
     closeBtn.type = 'button';
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', clearSel);
+    var profileBtn = document.createElement('button');
+    profileBtn.className = 'ch-profile-btn';
+    profileBtn.type = 'button';
+    profileBtn.title = 'الملف الشخصي';
+    profileBtn.textContent = '⚙️';
+    profileBtn.addEventListener('click', openProfileModal);
     header.appendChild(contactsBtn);
     header.appendChild(info);
+    header.appendChild(profileBtn);
     header.appendChild(closeBtn);
     main.appendChild(header);
     var msgsEl = document.createElement('div');
@@ -985,6 +993,164 @@
     }, 60000); // every 60s
   }
 
+  /* ── Profile ───────────────────────────────────────────────── */
+  function getProfile() {
+    var base = getChatUser();
+    var extra = Storage.getItem(PROFILE_KEY) || {};
+    return {
+      nickname: extra.nickname || (base && base.username) || '',
+      bio: extra.bio || '',
+      avatar: extra.avatar || null
+    };
+  }
+
+  function saveProfile(data) {
+    var base = getChatUser();
+    if (!base) { toast('سجّل كمستخدم أولاً', 'err'); return false; }
+    var newNick = Utils.sanitizeText((data.nickname || '').trim(), 32);
+    if (!newNick) { toast('أدخل اسمًا رمزيًا', 'err'); return false; }
+    if (newNick !== base.username) {
+      if (window.UserRegistry && window.UserRegistry.isNicknameTaken(newNick, base.deviceId)) {
+        toast('هذا الاسم مستخدم بالفعل، اختر اسمًا آخر', 'err'); return false;
+      }
+    }
+    var profile = {
+      nickname: newNick,
+      bio: Utils.sanitizeText((data.bio || '').trim(), 120),
+      avatar: data.avatar || null
+    };
+    try { Storage.setItem(PROFILE_KEY, profile); }
+    catch (e) { toast('فشل حفظ الملف الشخصي (مساحة التخزين ممتلئة)', 'err'); return false; }
+    if (newNick !== base.username) {
+      setChatUser({ deviceId: base.deviceId, username: newNick });
+      if (window.UserRegistry) window.UserRegistry.registerUser(base.deviceId, newNick);
+      updateYouLabel();
+      contacts = buildContacts();
+      renderContacts();
+    }
+    return true;
+  }
+
+  function resizeAvatar(file, cb) {
+    var r = new FileReader();
+    r.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var canvas = document.createElement('canvas');
+        var sz = 200;
+        canvas.width = sz; canvas.height = sz;
+        var ctx = canvas.getContext('2d');
+        var sw = Math.min(img.width, img.height);
+        var sx = (img.width - sw) / 2;
+        var sy = (img.height - sw) / 2;
+        ctx.drawImage(img, sx, sy, sw, sw, 0, 0, sz, sz);
+        cb(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = function () { cb(null); };
+      img.src = e.target.result;
+    };
+    r.onerror = function () { cb(null); };
+    r.readAsDataURL(file);
+  }
+
+  function injectProfileModal() {
+    if (document.getElementById('m-profile')) return;
+    var ov = document.createElement('div');
+    ov.className = 'overlay';
+    ov.id = 'm-profile';
+    ov.innerHTML =
+      '<div class="modal" style="max-width:400px">' +
+        '<div class="modal-head"><span class="micon">👤</span>' +
+          '<h3>ملف التعريف</h3>' +
+          '<p>عدّل اسمك ونبذتك وصورتك الشخصية</p></div>' +
+        '<div class="profile-av-wrap">' +
+          '<div class="profile-av" id="profile-av-preview" title="اضغط لتغيير الصورة">👤</div>' +
+          '<input type="file" id="profile-avatar-pick" accept="image/png,image/jpeg,image/webp" style="display:none"/>' +
+          '<span class="profile-av-hint">اضغط على الصورة لتغييرها</span>' +
+        '</div>' +
+        '<div class="form-field"><label for="profile-nickname">الاسم الرمزي</label>' +
+          '<input type="text" id="profile-nickname" maxlength="32" autocomplete="off" placeholder="اسمك في المحادثة"/></div>' +
+        '<div class="form-field"><label for="profile-bio">نبذة قصيرة</label>' +
+          '<textarea id="profile-bio" placeholder="أخبرنا عن نفسك…" maxlength="120" rows="3"></textarea></div>' +
+        '<div class="modal-foot">' +
+          '<button class="btn btn-primary" id="btn-save-profile" type="button">💾 حفظ التغييرات</button>' +
+          '<button class="btn btn-ghost" data-close="m-profile" type="button">إلغاء</button>' +
+        '</div>' +
+      '</div>';
+    ov.addEventListener('click', function (e) { if (e.target === ov) ov.classList.remove('open'); });
+    document.body.appendChild(ov);
+  }
+
+  function openProfileModal() {
+    if (!hasChatUser()) { if (window.Modals) window.Modals.open('m-chat-username'); return; }
+    var p = getProfile();
+    var prevEl = document.getElementById('profile-av-preview');
+    if (prevEl) {
+      if (p.avatar) {
+        prevEl.style.backgroundImage = 'url(' + p.avatar + ')';
+        prevEl.setAttribute('data-avatar', p.avatar);
+        prevEl.textContent = '';
+      } else {
+        prevEl.style.backgroundImage = '';
+        prevEl.removeAttribute('data-avatar');
+        prevEl.textContent = p.nickname ? p.nickname[0] : '👤';
+      }
+    }
+    var nickEl = document.getElementById('profile-nickname');
+    if (nickEl) nickEl.value = p.nickname;
+    var bioEl = document.getElementById('profile-bio');
+    if (bioEl) bioEl.value = p.bio;
+    if (window.Modals) window.Modals.open('m-profile');
+  }
+
+  function bindProfileModal() {
+    // Use event delegation so it works after the modal is injected
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'profile-av-preview') {
+        var pick = document.getElementById('profile-avatar-pick');
+        if (pick) pick.click();
+      }
+      if (e.target && e.target.id === 'btn-save-profile') {
+        var nickEl = document.getElementById('profile-nickname');
+        var bioEl  = document.getElementById('profile-bio');
+        var prevEl = document.getElementById('profile-av-preview');
+        var avatar = (prevEl && prevEl.getAttribute('data-avatar')) || null;
+        if (!avatar) { var ex = getProfile(); avatar = ex.avatar; }
+        var ok = saveProfile({
+          nickname: nickEl ? nickEl.value : '',
+          bio:      bioEl  ? bioEl.value  : '',
+          avatar:   avatar
+        });
+        if (ok) {
+          if (window.Modals) window.Modals.close('m-profile');
+          toast('تم حفظ الملف الشخصي ✓', 'ok');
+        }
+      }
+    });
+    document.addEventListener('change', function (e) {
+      if (e.target && e.target.id === 'profile-avatar-pick') {
+        var file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        if (!ALLOWED_IMAGE_TYPES.some(function (t) { return file.type === t; })) {
+          toast('نوع الصورة غير مدعوم. استخدم PNG أو JPG أو WebP', 'err'); return;
+        }
+        if (file.size > MAX_IMG_MB * 1024 * 1024) {
+          toast('حجم الصورة أكبر من ' + MAX_IMG_MB + ' ميجابايت', 'err'); return;
+        }
+        resizeAvatar(file, function (dataUrl) {
+          if (!dataUrl) { toast('فشل تحميل الصورة', 'err'); return; }
+          var prevEl = document.getElementById('profile-av-preview');
+          if (prevEl) {
+            prevEl.style.backgroundImage = 'url(' + dataUrl + ')';
+            prevEl.setAttribute('data-avatar', dataUrl);
+            prevEl.textContent = '';
+          }
+        });
+      }
+    });
+  }
+
   function init() {
     var fab = document.getElementById('chat-fab');
     if (fab) fab.addEventListener('click', toggleChat);
@@ -1056,6 +1222,9 @@
       if (me && window.UserRegistry) window.UserRegistry.setOffline(me.deviceId);
       if (heartbeatInterval) clearInterval(heartbeatInterval);
     });
+    // Profile modal — injected dynamically so it works on all pages without HTML changes
+    injectProfileModal();
+    bindProfileModal();
   }
 
   window.Chat = {

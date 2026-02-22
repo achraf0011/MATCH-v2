@@ -205,6 +205,25 @@
       headerLi.appendChild(closeBtn);
       navLinks.insertBefore(headerLi, navLinks.firstChild);
     }
+    // Inject admin button as the last <li> in the mobile full-screen menu
+    if (navLinks && !document.getElementById('mob-nav-admin-li')) {
+      var adminLi = document.createElement('li');
+      adminLi.id = 'mob-nav-admin-li';
+      adminLi.className = 'mob-nav-admin';
+      var adminMobBtn = document.createElement('button');
+      adminMobBtn.id = 'mob-admin-btn';
+      adminMobBtn.className = 'nav-link mob-admin-btn';
+      adminMobBtn.type = 'button';
+      var adm = window.Auth && window.Auth.getIsAdmin ? window.Auth.getIsAdmin() : false;
+      adminMobBtn.textContent = adm ? '🚪 تسجيل الخروج' : '🔐 دخول المسؤول';
+      if (adm) adminMobBtn.classList.add('logout');
+      adminMobBtn.addEventListener('click', function () {
+        handleAdminBtn();
+        closeMenu();
+      });
+      adminLi.appendChild(adminMobBtn);
+      navLinks.appendChild(adminLi);
+    }
 
     /* Close dropdowns / menu on outside click */
     document.addEventListener('click', function (e) {

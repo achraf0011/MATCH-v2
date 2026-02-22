@@ -97,6 +97,17 @@
       if (badge) badge.classList.remove('show');
       document.body.classList.remove('admin-active');
     }
+    // Sync mobile menu admin button (injected by navbar.js)
+    var mobBtn = document.getElementById('mob-admin-btn');
+    if (mobBtn) {
+      if (isAdmin) {
+        mobBtn.textContent = '🚪 تسجيل الخروج';
+        mobBtn.classList.add('logout');
+      } else {
+        mobBtn.textContent = '🔐 دخول المسؤول';
+        mobBtn.classList.remove('logout');
+      }
+    }
   }
 
   load();

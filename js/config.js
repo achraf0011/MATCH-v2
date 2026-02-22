@@ -12,6 +12,7 @@ window.APP_CONFIG = {
     ADMIN: 'madarik_admin_session',
     CHAT_USER: 'madarik_chat_user',
     CHAT_CONVOS: 'madarik_chat_convos',
+    CHAT_PROFILE: 'madarik_chat_profile',
     CHAT_USERS_REGISTRY: 'madarik_users_registry',
     MIC_PERMISSION_DENIED: 'madarik_mic_denied',
     CAMERA_PERMISSION_DENIED: 'madarik_camera_denied',
