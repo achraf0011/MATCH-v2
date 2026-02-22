@@ -12,6 +12,108 @@
   var KEYS = window.APP_CONFIG.STORAGE_KEYS;
   var MAX_PDF_MB = window.APP_CONFIG.MAX_PDF_MB || 20;
 
+  /* ── Subject helpers ─────────────────────── */
+  var activeSubject = 'all'; // 'all' or subject id
+
+  function getLevelGroup() {
+    var level = (App.getCurrentLevel && App.getCurrentLevel()) || 'first-middle';
+    if (level.indexOf('primary') !== -1) return 'primary';
+    if (level.indexOf('bac') !== -1 || level.indexOf('shared') !== -1) return 'bac';
+    return 'middle';
+  }
+
+  function getSubjects() {
+    var cfg = window.APP_CONFIG.SUBJECTS;
+    if (!cfg) return [];
+    return cfg[getLevelGroup()] || cfg.middle || [];
+  }
+
+  function buildSubjectSidebar() {
+    var subjects = getSubjects();
+    if (!subjects.length) return '';
+    var html = '<aside class="subject-sidebar">';
+    html += '<div class="subject-item' + (activeSubject === 'all' ? ' active' : '') + '" data-subject="all">';
+    html += '<span class="si-icon">📚</span> الكل</div>';
+    subjects.forEach(function (s) {
+      html += '<div class="subject-item' + (activeSubject === s.id ? ' active' : '') + '" data-subject="' + Utils.esc(s.id) + '">';
+      html += '<span class="si-icon">' + s.icon + '</span> ' + Utils.esc(s.name) + '</div>';
+    });
+    html += '</aside>';
+    return html;
+  }
+
+  function buildSubjectDropdown() {
+    var subjects = getSubjects();
+    if (!subjects.length) return '';
+    var html = '<div class="subject-dropdown-wrap">';
+    html += '<select class="subject-dropdown" id="subject-dropdown">';
+    html += '<option value="all"' + (activeSubject === 'all' ? ' selected' : '') + '>📚 جميع المواد</option>';
+    subjects.forEach(function (s) {
+      html += '<option value="' + Utils.esc(s.id) + '"' + (activeSubject === s.id ? ' selected' : '') + '>' + s.icon + ' ' + Utils.esc(s.name) + '</option>';
+    });
+    html += '</select></div>';
+    return html;
+  }
+
+  function filterItemsBySubject(items) {
+    if (activeSubject === 'all') return items;
+    return items.filter(function (item) {
+      return item.subject === activeSubject;
+    });
+  }
+
+  function bindSubjectEvents(rerenderFn) {
+    // Desktop sidebar click
+    var sidebarItems = document.querySelectorAll('.subject-item');
+    sidebarItems.forEach(function (el) {
+      el.addEventListener('click', function () {
+        activeSubject = el.getAttribute('data-subject') || 'all';
+        rerenderFn();
+      });
+    });
+    // Mobile dropdown
+    var dropdown = document.getElementById('subject-dropdown');
+    if (dropdown) {
+      dropdown.addEventListener('change', function () {
+        activeSubject = dropdown.value || 'all';
+        rerenderFn();
+      });
+    }
+  }
+
+  /* ── Schedule helpers ────────────────────── */
+  function buildSchedulePanel() {
+    var tmpl = window.APP_CONFIG.SCHEDULE_TEMPLATE;
+    if (!tmpl) return '';
+    var level = (App.getCurrentLevel && App.getCurrentLevel()) || '';
+    var stored = Storage.getItem('madarik_schedule_' + level, null);
+    var html = '<div class="schedule-panel">';
+    html += '<div class="sec-header"><div class="sec-icon">📅</div><h2>الجدول الأسبوعي</h2></div>';
+    if (stored && stored.length) {
+      html += '<div class="schedule-grid">';
+      stored.forEach(function (card) {
+        html += '<div class="schedule-card">';
+        html += '<div class="sc-day">' + Utils.esc(card.day) + '</div>';
+        html += '<div class="sc-time">' + Utils.esc(card.time) + '</div>';
+        html += '<div class="sc-subject">' + Utils.esc(card.subject) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="schedule-grid">';
+      tmpl.days.forEach(function (day) {
+        html += '<div class="schedule-card">';
+        html += '<div class="sc-day">' + Utils.esc(day) + '</div>';
+        html += '<div class="sc-time">—</div>';
+        html += '<div class="sc-subject">لم يتم تعيين الحصص بعد</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   function adminBar(addLabel, addOnClick, modalId) {
     if (!Auth.getIsAdmin()) return '';
     return '<div class="admin-bar">' +
@@ -86,12 +188,22 @@
   function renderDocList(items, type, iconClass, sectionTitle, countLabel, emptyMsg, addModalId, addLabel, delCb) {
     var isAdmin = Auth.getIsAdmin();
     var adminBarHtml = adminBar(addLabel, null, addModalId);
+    var filteredItems = filterItemsBySubject(items);
     var listHtml;
-    if (!items || items.length === 0) {
-      listHtml = '<div class="empty"><span class="empty-icon">' + (type === 'pdf' ? '📄' : type === 'ex' ? '📝' : '📋') + '</span><p>' + emptyMsg + '</p></div>';
+    if (!filteredItems || filteredItems.length === 0) {
+      listHtml = '<div class="empty"><span class="empty-icon">' + (type === 'pdf' ? '📄' : type === 'ex' ? '📝' : '📋') + '</span><p>' +
+        (activeSubject !== 'all' ? 'لا توجد ملفات لهذه المادة' : emptyMsg) + '</p></div>';
     } else {
-      listHtml = items.map(function (item, i) {
+      listHtml = filteredItems.map(function (item) {
+        // find original index for deletion
+        var origIdx = items.indexOf(item);
         var hasFile = !!item.id;
+        var subjectBadge = '';
+        if (item.subject && activeSubject === 'all') {
+          var subjs = getSubjects();
+          var matched = subjs.find(function (s) { return s.id === item.subject; });
+          if (matched) subjectBadge = '<span class="doc-subject-badge">' + matched.icon + ' ' + Utils.esc(matched.name) + '</span>';
+        }
         var actions = '<div class="doc-actions">';
         if (hasFile) {
           actions += '<button type="button" class="btn-download" data-doc-id="' + Utils.esc(item.id) + '" data-doc-title="' + Utils.esc(item.title) + '">⬇ تحميل</button>';
@@ -99,23 +211,34 @@
         } else {
           actions += '<span class="btn-coming">قريبًا…</span>';
         }
-        if (isAdmin) actions += '<button class="doc-del" type="button" data-index="' + i + '" title="حذف">🗑</button>';
+        if (isAdmin) actions += '<button class="doc-del" type="button" data-index="' + origIdx + '" title="حذف">🗑</button>';
         actions += '</div>';
         return '<div class="doc-item">' +
           '<div class="doc-icon ' + iconClass + '">' + (type === 'pdf' ? '📄' : type === 'ex' ? '📝' : '📋') + '</div>' +
-          '<div class="doc-body"><div class="doc-title">' + Utils.esc(item.title) + '</div><div class="doc-desc">' + Utils.esc(item.desc) + '</div></div>' +
+          '<div class="doc-body"><div class="doc-title">' + Utils.esc(item.title) + '</div>' + subjectBadge + '<div class="doc-desc">' + Utils.esc(item.desc) + '</div></div>' +
           actions + '</div>';
       }).join('');
     }
-    var html = '<div class="sec-header">' +
+    var sidebarHtml = buildSubjectSidebar();
+    var dropdownHtml = buildSubjectDropdown();
+    var headerHtml = '<div class="sec-header">' +
       '<div class="sec-icon">' + (type === 'pdf' ? '📄' : type === 'ex' ? '📝' : '📋') + '</div>' +
       '<h2>' + sectionTitle + '</h2>' +
-      '<span class="sec-count">' + (items ? items.length : 0) + '</span></div>' +
-      adminBarHtml +
-      '<div class="doc-list">' + listHtml + '</div>';
+      '<span class="sec-count">' + (filteredItems ? filteredItems.length : 0) + ' / ' + (items ? items.length : 0) + '</span></div>';
+    var html = headerHtml + adminBarHtml + dropdownHtml +
+      '<div class="content-layout">' +
+      sidebarHtml +
+      '<div class="content-main"><div class="doc-list">' + listHtml + '</div></div>' +
+      '</div>';
     var page = document.getElementById('page');
     if (!page) return;
     page.innerHTML = html;
+
+    // Bind subject filtering
+    var rerenderFn = function () {
+      renderDocList(items, type, iconClass, sectionTitle, countLabel, emptyMsg, addModalId, addLabel, delCb);
+    };
+    bindSubjectEvents(rerenderFn);
 
     bindAdminBarEvents(addModalId);
     page.querySelectorAll('.btn-download').forEach(function (btn) {
@@ -159,6 +282,17 @@
       '<div class="home-card" data-section="exercises"><span class="hc-icon">📝</span><div class="hc-title">سلاسل التمارين</div><div class="hc-count">' + (ex ? ex.length : 0) + ' سلسلة</div></div>' +
       '<div class="home-card" data-section="tests"><span class="hc-icon">📋</span><div class="hc-title">الامتحانات التجريبية</div><div class="hc-count">' + (t ? t.length : 0) + ' امتحان</div></div>' +
       '</div></div>';
+    // Add subjects quick strip
+    var subjects = getSubjects();
+    if (subjects.length) {
+      html += '<div class="home-subjects"><h3>📚 المواد الدراسية</h3><div class="home-subjects-grid">';
+      subjects.forEach(function (s) {
+        html += '<div class="home-subject-chip"><span>' + s.icon + '</span> ' + Utils.esc(s.name) + '</div>';
+      });
+      html += '</div></div>';
+    }
+    // Add schedule overview
+    html += buildSchedulePanel();
     var page = document.getElementById('page');
     if (!page) return;
     page.innerHTML = html;
@@ -176,21 +310,36 @@
   }
 
   function renderVideos() {
-    var videos = App.getVideos();
+    var allVideos = App.getVideos();
+    var videos = filterItemsBySubject(allVideos);
     var isAdmin = Auth.getIsAdmin();
     var adminBarHtml = adminBar('➕ إضافة فيديو جديد', null, 'm-video');
-    var cards = videos.length ? videos.map(function (v, i) {
+    var sidebarHtml = buildSubjectSidebar();
+    var dropdownHtml = buildSubjectDropdown();
+    var subjectBadgeFor = function (v) {
+      if (!v.subject || activeSubject !== 'all') return '';
+      var subjs = getSubjects();
+      var matched = subjs.find(function (s) { return s.id === v.subject; });
+      return matched ? '<span class="doc-subject-badge">' + matched.icon + ' ' + Utils.esc(matched.name) + '</span>' : '';
+    };
+    var cards = videos.length ? videos.map(function (v) {
+      var origIdx = allVideos.indexOf(v);
       return '<div class="vid-card" data-video-id="' + Utils.esc(v.id) + '">' +
         '<div class="vid-thumb">' +
         '<img src="https://img.youtube.com/vi/' + Utils.esc(v.id) + '/hqdefault.jpg" alt="" loading="lazy" onerror="this.style.display=\'none\'">' +
         '<div class="vid-play"></div></div>' +
-        (isAdmin ? '<button class="vid-del" type="button" data-video-index="' + i + '" title="حذف">🗑</button>' : '') +
-        '<div class="vid-info"><div class="vid-title">' + Utils.esc(v.title) + '</div><div class="vid-desc">' + Utils.esc(v.desc) + '</div></div></div>';
-    }).join('') : '<div class="empty" style="grid-column:1/-1"><span class="empty-icon">🎬</span><p>لا توجد فيديوهات بعد.' + (isAdmin ? ' أضف أول فيديو باستخدام الزر أعلاه.' : '') + '</p></div>';
-    var html = '<div class="sec-header"><div class="sec-icon">🎬</div><h2>شرح بالفيديو</h2><span class="sec-count">' + videos.length + '</span></div>' +
-      adminBarHtml + '<div class="video-grid">' + cards + '</div>';
+        (isAdmin ? '<button class="vid-del" type="button" data-video-index="' + origIdx + '" title="حذف">🗑</button>' : '') +
+        '<div class="vid-info">' + subjectBadgeFor(v) + '<div class="vid-title">' + Utils.esc(v.title) + '</div><div class="vid-desc">' + Utils.esc(v.desc) + '</div></div></div>';
+    }).join('') : '<div class="empty" style="grid-column:1/-1"><span class="empty-icon">🎬</span><p>' +
+      (activeSubject !== 'all' ? 'لا توجد فيديوهات لهذه المادة' : 'لا توجد فيديوهات بعد.' + (isAdmin ? ' أضف أول فيديو باستخدام الزر أعلاه.' : '')) + '</p></div>';
+    var html = '<div class="sec-header"><div class="sec-icon">🎬</div><h2>شرح بالفيديو</h2><span class="sec-count">' + videos.length + ' / ' + allVideos.length + '</span></div>' +
+      adminBarHtml + dropdownHtml +
+      '<div class="content-layout">' + sidebarHtml +
+      '<div class="content-main"><div class="video-grid">' + cards + '</div></div></div>';
     var page = document.getElementById('page');
     if (page) page.innerHTML = html;
+    // Bind subject filtering
+    bindSubjectEvents(renderVideos);
     bindAdminBarEvents('m-video');
     page.querySelectorAll('.vid-card[data-video-id]').forEach(function (card) {
       card.addEventListener('click', function (e) {
@@ -257,14 +406,16 @@
     var urlEl = document.getElementById('f-vurl');
     var titleEl = document.getElementById('f-vtitle');
     var descEl = document.getElementById('f-vdesc');
+    var subjEl = document.getElementById('f-vsubject');
     var url = urlEl && urlEl.value ? urlEl.value.trim() : '';
     var title = titleEl && titleEl.value ? titleEl.value.trim() : '';
     var desc = descEl && descEl.value ? descEl.value.trim() : '';
+    var subject = subjEl && subjEl.value ? subjEl.value : '';
     if (!url || !title) { Modals.toast('❌ الرجاء تعبئة الحقول المطلوبة', 'err'); return; }
     var id = extractYTID(url);
     if (!id) { Modals.toast('❌ رابط YouTube غير صحيح.', 'err'); return; }
     var videos = App.getVideos();
-    videos.unshift({ id: id, title: title, desc: desc || 'درس تعليمي' });
+    videos.unshift({ id: id, title: title, desc: desc || 'درس تعليمي', subject: subject });
     App.setVideos(videos);
     if (urlEl) urlEl.value = '';
     if (titleEl) titleEl.value = '';
@@ -285,13 +436,15 @@
     var fileEl = document.getElementById('f-pfile');
     var titleEl = document.getElementById('f-ptitle');
     var descEl = document.getElementById('f-pdesc');
+    var subjEl = document.getElementById('f-psubject');
     var file = fileEl && fileEl.files && fileEl.files[0];
     var title = titleEl && titleEl.value ? titleEl.value.trim() : '';
     var desc = descEl && descEl.value ? descEl.value.trim() : '';
+    var subject = subjEl && subjEl.value ? subjEl.value : '';
     if (!title) { Modals.toast('❌ أدخل عنوان الملف', 'err'); return; }
     if (!file) {
       var list = App.getPdfList();
-      list.unshift({ id: null, title: title, desc: desc || 'ملف درس' });
+      list.unshift({ id: null, title: title, desc: desc || 'ملف درس', subject: subject });
       App.setPdfList(list);
     } else {
       if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
@@ -305,7 +458,7 @@
       var id = makeId('pdf');
       Storage.putBlob(id, file).then(function () {
         var list = App.getPdfList();
-        list.unshift({ id: id, title: title, desc: desc || 'ملف درس' });
+        list.unshift({ id: id, title: title, desc: desc || 'ملف درس', subject: subject });
         App.setPdfList(list);
         if (fileEl) fileEl.value = '';
         if (titleEl) titleEl.value = '';
@@ -333,19 +486,21 @@
     var fileEl = document.getElementById('f-exfile');
     var titleEl = document.getElementById('f-extitle');
     var descEl = document.getElementById('f-exdesc');
+    var subjEl = document.getElementById('f-exsubject');
     var file = fileEl && fileEl.files && fileEl.files[0];
     var title = titleEl && titleEl.value ? titleEl.value.trim() : '';
     var desc = descEl && descEl.value ? descEl.value.trim() : '';
+    var subject = subjEl && subjEl.value ? subjEl.value : '';
     if (!title) { Modals.toast('❌ أدخل عنوان السلسلة', 'err'); return; }
     if (!file) {
       var list = App.getExercisesList();
-      list.unshift({ id: null, title: title, desc: desc || 'سلسلة تمارين' });
+      list.unshift({ id: null, title: title, desc: desc || 'سلسلة تمارين', subject: subject });
       App.setExercisesList(list);
     } else {
       var id = makeId('ex');
       Storage.putBlob(id, file).then(function () {
         var list = App.getExercisesList();
-        list.unshift({ id: id, title: title, desc: desc || 'سلسلة تمارين' });
+        list.unshift({ id: id, title: title, desc: desc || 'سلسلة تمارين', subject: subject });
         App.setExercisesList(list);
         if (fileEl) fileEl.value = '';
         if (titleEl) titleEl.value = '';
@@ -373,19 +528,21 @@
     var fileEl = document.getElementById('f-testfile');
     var titleEl = document.getElementById('f-testtitle');
     var descEl = document.getElementById('f-testdesc');
+    var subjEl = document.getElementById('f-testsubject');
     var file = fileEl && fileEl.files && fileEl.files[0];
     var title = titleEl && titleEl.value ? titleEl.value.trim() : '';
     var desc = descEl && descEl.value ? descEl.value.trim() : '';
+    var subject = subjEl && subjEl.value ? subjEl.value : '';
     if (!title) { Modals.toast('❌ أدخل عنوان الامتحان', 'err'); return; }
     if (!file) {
       var list = App.getTestsList();
-      list.unshift({ id: null, title: title, desc: desc || 'امتحان تجريبي' });
+      list.unshift({ id: null, title: title, desc: desc || 'امتحان تجريبي', subject: subject });
       App.setTestsList(list);
     } else {
       var id = makeId('test');
       Storage.putBlob(id, file).then(function () {
         var list = App.getTestsList();
-        list.unshift({ id: id, title: title, desc: desc || 'امتحان تجريبي' });
+        list.unshift({ id: id, title: title, desc: desc || 'امتحان تجريبي', subject: subject });
         App.setTestsList(list);
         if (fileEl) fileEl.value = '';
         if (titleEl) titleEl.value = '';
@@ -409,6 +566,8 @@
   }
 
   function render(section) {
+    // Reset subject filter when navigating to a new section
+    activeSubject = 'all';
     if (section === 'home') renderHome();
     else if (section === 'video') renderVideos();
     else if (section === 'pdf') renderPDFs();
@@ -421,6 +580,8 @@
     submitVideo: submitVideo,
     submitPDF: submitPDF,
     submitExercise: submitExercise,
-    submitTest: submitTest
+    submitTest: submitTest,
+    getSubjects: getSubjects,
+    resetSubjectFilter: function () { activeSubject = 'all'; }
   };
 })();

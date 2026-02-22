@@ -101,6 +101,13 @@
         <label>وصف الفيديو</label>
         <textarea id="f-vdesc" placeholder="وصف مختصر للدرس..."></textarea>
       </div>
+      <div class="form-field">
+        <label>المادة الدراسية</label>
+        <select id="f-vsubject" class="subject-dropdown">
+          <option value="">-- اختر المادة (اختياري) --</option>
+        </select>
+        <p class="field-hint">سيتم ملء القائمة تلقائيًا حسب المستوى</p>
+      </div>
       <div class="modal-foot">
         <button class="btn btn-primary" type="button" id="btn-submit-video">➕ إضافة الفيديو</button>
         <button class="btn btn-ghost" type="button" data-close="m-video">إلغاء</button>
@@ -128,6 +135,13 @@
         <label>وصف الملف</label>
         <textarea id="f-pdesc" placeholder="وصف مختصر..."></textarea>
       </div>
+      <div class="form-field">
+        <label>المادة الدراسية</label>
+        <select id="f-psubject" class="subject-dropdown">
+          <option value="">-- اختر المادة (اختياري) --</option>
+        </select>
+        <p class="field-hint">سيتم ملء القائمة تلقائيًا حسب المستوى</p>
+      </div>
       <div class="modal-foot">
         <button class="btn btn-primary" type="button" id="btn-submit-pdf">📤 رفع الملف</button>
         <button class="btn btn-ghost" type="button" data-close="m-pdf">إلغاء</button>
@@ -154,6 +168,13 @@
         <label>الوصف</label>
         <textarea id="f-exdesc" placeholder="وصف السلسلة..."></textarea>
       </div>
+      <div class="form-field">
+        <label>المادة الدراسية</label>
+        <select id="f-exsubject" class="subject-dropdown">
+          <option value="">-- اختر المادة (اختياري) --</option>
+        </select>
+        <p class="field-hint">سيتم ملء القائمة تلقائيًا حسب المستوى</p>
+      </div>
       <div class="modal-foot">
         <button class="btn btn-primary" type="button" id="btn-submit-ex">➕ إضافة</button>
         <button class="btn btn-ghost" type="button" data-close="m-ex">إلغاء</button>
@@ -179,6 +200,13 @@
       <div class="form-field">
         <label>الوصف</label>
         <textarea id="f-testdesc" placeholder="وصف الامتحان..."></textarea>
+      </div>
+      <div class="form-field">
+        <label>المادة الدراسية</label>
+        <select id="f-testsubject" class="subject-dropdown">
+          <option value="">-- اختر المادة (اختياري) --</option>
+        </select>
+        <p class="field-hint">سيتم ملء القائمة تلقائيًا حسب المستوى</p>
       </div>
       <div class="modal-foot">
         <button class="btn btn-primary" type="button" id="btn-submit-test">➕ إضافة</button>
@@ -213,12 +241,22 @@
     <div id="chat-box">
       <div class="chat-layout">
         <div class="chat-sidebar" id="chat-sidebar">
-          <div class="csb-head">👥 الأصدقاء</div>
+          <div class="csb-head">
+            <span>👥 الأصدقاء</span>
+            <button class="csb-mobile-back" id="csb-back" type="button" aria-label="رجوع" title="رجوع">✕</button>
+          </div>
           <div class="ch-you-label" id="chat-you-label"></div>
-          <div class="csb-search">
-            <input type="text" placeholder="بحث..." id="f-search"/>
+          <div class="csb-search"><input type="text" placeholder="بحث في الرسائل..." id="f-search"/></div>
+          <div class="csb-filter-pills" id="csb-filters">
+            <button class="csb-filter-pill active" data-filter="all">الكل</button>
+            <button class="csb-filter-pill" data-filter="text">نص</button>
+            <button class="csb-filter-pill" data-filter="image">صور</button>
+            <button class="csb-filter-pill" data-filter="audio">صوت</button>
           </div>
           <div class="friends-list" id="friends-list"></div>
+          <div class="csb-new-chat-wrap">
+            <button class="csb-new-chat" id="csb-new-chat" type="button">✏️ محادثة جديدة</button>
+          </div>
         </div>
         <div class="chat-main" id="chat-main">
           <div class="chat-no-sel">
@@ -240,6 +278,7 @@
   <script src="js/modals.js?v=2"></script>
   <script src="js/app.js?v=2"></script>
   <script src="js/navbar.js?v=2"></script>
+  <script src="js/user-registry.js?v=2"></script>
   <script src="js/chat.js?v=2"></script>
   <script src="js/pages.js?v=2"></script>
   <script src="js/bootstrap.js?v=2"></script>

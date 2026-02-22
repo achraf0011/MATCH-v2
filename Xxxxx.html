@@ -490,9 +490,10 @@ main {
   background: var(--navy2); border: 1px solid var(--border2);
   border-radius: 20px; box-shadow: var(--shadow2); overflow:hidden;
 }
-#chat-box.open { display:flex; animation: modalIn .28s var(--ease); }
+#chat-box.open { display:flex; animation: chatBoxIn .25s var(--ease); }
+@keyframes chatBoxIn { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-.chat-layout { display:flex; width:100%; height:100%; }
+.chat-layout { display:flex; width:100%; height:100%; position:relative; overflow:hidden; }
 
 /* Sidebar */
 .chat-sidebar {
@@ -500,24 +501,68 @@ main {
   border-left: 1px solid var(--border);
   background: rgba(0,0,0,.22);
   display:flex; flex-direction:column;
+  overflow:hidden; z-index:2;
 }
 .csb-head {
-  padding:16px 16px 12px;
+  padding:14px 16px;
   background: linear-gradient(135deg, var(--navy), var(--navy2));
   border-bottom: 1px solid var(--border);
   font-family:'Cairo',sans-serif; font-weight:800; font-size:14px;
-  display:flex; align-items:center; gap:8px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  min-height: 48px;
 }
-.csb-search { padding:10px 12px; border-bottom: 1px solid var(--border); }
+.csb-mobile-back {
+  display: none;
+  width: 32px; height: 32px; min-width: 32px; min-height: 32px;
+  border-radius: 8px; border: 1px solid var(--border2);
+  background: rgba(255,255,255,.07); color: var(--text2);
+  cursor: pointer; font-size: 14px;
+  align-items: center; justify-content: center; flex-shrink: 0;
+  transition: background .18s var(--ease);
+}
+.csb-mobile-back:hover { background: rgba(255,255,255,.18); color: var(--white); }
+.csb-search { padding:10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .csb-search input {
   width:100%; background:rgba(255,255,255,.07); border:1.5px solid var(--border);
   border-radius:18px; padding:8px 13px; color:white; font-family:'Tajawal',sans-serif; font-size:13px;
-  transition: border-color .2s var(--ease);
+  transition: border-color .2s var(--ease); min-height: 38px; box-sizing: border-box;
 }
 .csb-search input:focus { outline:none; border-color: var(--blue2); }
 .csb-search input::placeholder { color: var(--text3); }
 
-.friends-list { flex:1; overflow-y:auto; padding:6px 0; }
+/* Filter pills */
+.csb-filter-pills {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 8px 12px 9px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.csb-filter-pill {
+  flex: 1; min-width: 0;
+  padding: 5px 6px; border-radius: 20px;
+  border: 1.5px solid var(--border2);
+  background: rgba(255,255,255,.05);
+  color: var(--text2); font-family:'Tajawal',sans-serif; font-size:11.5px; font-weight:600;
+  cursor: pointer; white-space: nowrap; text-align: center;
+  transition: all .18s var(--ease); min-height: 30px;
+  display: flex; align-items: center; justify-content: center;
+}
+.csb-filter-pill:hover  { background: rgba(255,255,255,.1); color: var(--white); }
+.csb-filter-pill.active { background: rgba(42,90,255,.22); border-color: var(--blue3); color: var(--white); }
+
+/* New Chat button */
+.csb-new-chat-wrap { padding: 10px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.csb-new-chat {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; padding: 9px 14px; border: none; border-radius: 10px; cursor: pointer;
+  background: linear-gradient(135deg, var(--blue), var(--blue2));
+  color: white; font-family:'Tajawal',sans-serif; font-size:13px; font-weight:700;
+  transition: all .22s var(--ease); box-shadow: 0 2px 10px rgba(42,90,255,.35);
+  min-height: 40px; white-space: nowrap;
+}
+.csb-new-chat:hover  { box-shadow: 0 4px 18px rgba(42,90,255,.55); filter: brightness(1.08); }
+.csb-new-chat:active { filter: none; box-shadow: 0 2px 10px rgba(42,90,255,.35); }
+
+.friends-list { flex:1; overflow-y:auto; padding:6px 0; min-height: 0; }
 .friend {
   display:flex; align-items:center; gap:10px; padding:10px 14px;
   cursor:pointer; transition:all .18s var(--ease); border-right:3px solid transparent;
@@ -530,13 +575,20 @@ main {
   display:flex; align-items:center; justify-content:center;
   font-family:'Cairo',sans-serif; font-weight:800; font-size:14px;
   background: linear-gradient(135deg, var(--blue2), var(--gold));
+  overflow: hidden; position: relative;
+}
+.f-avatar img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center top;
+  border-radius: 50%; display: block;
 }
 .f-name   { font-size:13px; font-weight:600; margin-bottom:2px; }
 .f-status { font-size:11px; color:var(--teal); display:flex; align-items:center; gap:4px; }
 .f-status::before { content:'●'; font-size:7px; }
 
 /* Chat main */
-.chat-main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.chat-main { flex:1; display:flex; flex-direction:column; overflow:hidden; z-index:1; position:relative; }
 
 .chat-header {
   padding:14px 18px;
@@ -548,11 +600,23 @@ main {
 .ch-name { font-weight:700; font-size:14.5px; }
 .ch-sub  { font-size:11px; color:var(--teal); }
 .ch-close {
-  width:28px; height:28px; border-radius:50%; border:none;
+  width:34px; height:34px; min-width:34px; min-height:34px;
+  border-radius:50%; border:none;
   background: rgba(255,255,255,.08); color:white; cursor:pointer; font-size:18px;
   display:flex; align-items:center; justify-content:center; transition:all .2s var(--ease);
+  flex-shrink: 0;
 }
 .ch-close:hover { background: rgba(224,62,62,.3); }
+.ch-contacts-btn {
+  display: none;
+  width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+  border-radius: 9px; border: 1.5px solid var(--border2);
+  background: rgba(255,255,255,.07); color: var(--text);
+  cursor: pointer; font-size: 16px; line-height: 1;
+  align-items: center; justify-content: center; flex-shrink: 0;
+  transition: all .18s var(--ease);
+}
+.ch-contacts-btn:hover { background: rgba(255,255,255,.16); border-color: var(--blue3); }
 
 .chat-no-sel {
   flex:1; display:flex; flex-direction:column;
@@ -595,22 +659,23 @@ main {
   font-size:12px; display:flex; align-items:center; justify-content:center;
   transition:all .2s var(--ease);
 }
-.audio-btn:hover { background:rgba(255,255,255,.38); transform:scale(1.08); }
+.audio-btn:hover { background:rgba(255,255,255,.38); box-shadow: 0 0 0 2px rgba(91,130,255,.4); }
 .audio-label { font-size:12.5px; color:rgba(255,255,255,.75); }
 
 /* Input */
 .chat-input-area {
   padding:12px 16px;
   background: var(--navy2); border-top:1px solid var(--border); flex-shrink:0;
+  position:relative; z-index:2;
 }
-.input-row { display:flex; align-items:flex-end; gap:8px; }
-.media-btns { display:flex; gap:6px; }
+.input-row { display:flex; align-items:flex-end; gap:8px; position:relative; }
+.media-btns { display:flex; gap:6px; flex-shrink: 0; flex-wrap: wrap; }
 .media-btn {
   width:35px; height:35px; border-radius:50%; border:1.5px solid var(--border2);
   background:rgba(255,255,255,.06); cursor:pointer; font-size:15px;
   display:flex; align-items:center; justify-content:center; transition:all .2s var(--ease);
 }
-.media-btn:hover { background:rgba(255,255,255,.14); border-color:var(--blue3); transform:scale(1.06); }
+.media-btn:hover { background:rgba(255,255,255,.14); border-color:var(--blue3); box-shadow: 0 0 0 2px rgba(91,130,255,.25); }
 #msg-input {
   flex:1; background:rgba(255,255,255,.07); border:1.5px solid var(--border2);
   border-radius:18px; padding:9px 15px; color:white;
@@ -626,7 +691,7 @@ main {
   display:flex; align-items:center; justify-content:center;
   transition:all .22s var(--ease); flex-shrink:0;
 }
-#send-btn:hover { transform:scale(1.12); box-shadow:0 3px 14px rgba(42,90,255,.5); }
+#send-btn:hover { box-shadow: 0 4px 18px rgba(42,90,255,.65); }
 
 /* ══════════════════════════════════════
    SCROLLBAR
@@ -656,12 +721,48 @@ main {
   .dd-menu { position:static; box-shadow:none; border:none; background:rgba(0,0,0,.2); border-radius:0; }
   .dd-link { padding-right:36px; }
   .chat-sidebar { display:none; }
-  .chat-sidebar.sb-open { display:flex; position:absolute; inset:0; z-index:10; width:100%; }
-  #chat-box { left:0; right:0; margin:0 16px; width:auto; }
+  .chat-sidebar.sb-open {
+    display:flex; position:absolute; inset:0; z-index:20; width:100%;
+    background: var(--navy2);
+    animation: sbSlideIn .22s var(--ease);
+  }
+  @keyframes sbSlideIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .ch-contacts-btn { display: flex; min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+  .csb-mobile-back  { display: flex; min-width: 40px; min-height: 40px; width: 40px; height: 40px; }
+  .ch-close { width: 40px; height: 40px; min-width: 40px; min-height: 40px; font-size: 20px; }
+  /* Filter pills — taller touch targets on mobile */
+  .csb-filter-pill { min-height: 34px; font-size: 12px; }
+  /* New Chat button — touch-friendly */
+  .csb-new-chat { min-height: 44px; font-size: 13.5px; }
+  #chat-fab { bottom: 16px; left: 16px; }
+  #chat-box { left:8px; right:8px; margin:0; width:auto; bottom: 76px; height: min(480px, calc(100svh - 92px)); border-radius: 16px; overflow:hidden; }
+  .chat-header { padding: 10px 14px; gap: 8px; }
+  .chat-input-area { padding: 10px 12px; }
+  .input-row { gap: 6px; align-items: center; }
+  .media-btn { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+  #msg-input { min-height: 40px; min-width: 0; font-size: 13px; }
+  #send-btn  { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+  .bubble { max-width: 88%; font-size: 13px; }
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    #chat-fab { bottom: max(16px, calc(10px + env(safe-area-inset-bottom))); }
+    #chat-box  { bottom: max(76px, calc(72px + env(safe-area-inset-bottom))); }
+    .chat-input-area { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  }
 }
 @media (max-width:420px) {
   .home-grid { grid-template-columns:1fr 1fr; }
   .video-grid { grid-template-columns:1fr; }
+  .input-row { flex-wrap: wrap; gap: 6px; }
+  .media-btns { order: 1; width: 100%; justify-content: center; gap: 8px; }
+  #msg-input { order: 2; flex: 1; min-width: 0; }
+  #send-btn  { order: 3; flex-shrink: 0; width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
+  .media-btn { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
+  .bubble { max-width: 92%; }
+  .csb-filter-pills { gap: 4px; padding: 7px 10px 8px; }
+  .csb-filter-pill  { font-size: 11px; padding: 5px 4px; min-height: 32px; }
 }
 </style>
 </head>
@@ -862,11 +963,23 @@ main {
     <div class="chat-layout">
       <!-- Sidebar -->
       <div class="chat-sidebar" id="chat-sidebar">
-        <div class="csb-head">👥 الأصدقاء</div>
+        <div class="csb-head">
+            <span>👥 الأصدقاء</span>
+            <button class="csb-mobile-back" id="csb-back" type="button" aria-label="رجوع" title="رجوع">&#x2715;</button>
+          </div>
         <div class="csb-search">
-          <input type="text" placeholder="بحث..." id="f-search" oninput="filterFriends(this.value)"/>
+          <input type="text" placeholder="بحث في الرسائل..." id="f-search" oninput="filterFriends(this.value)"/>
+        </div>
+        <div class="csb-filter-pills" id="csb-filters">
+          <button class="csb-filter-pill active" data-filter="all">الكل</button>
+          <button class="csb-filter-pill" data-filter="text">نص</button>
+          <button class="csb-filter-pill" data-filter="image">صور</button>
+          <button class="csb-filter-pill" data-filter="audio">صوت</button>
         </div>
         <div class="friends-list" id="friends-list"></div>
+        <div class="csb-new-chat-wrap">
+          <button class="csb-new-chat" id="csb-new-chat" type="button">✏️ محادثة جديدة</button>
+        </div>
       </div>
 
       <!-- Chat main -->
@@ -897,6 +1010,7 @@ let curSection = 'home';
 let chatOpen   = false;
 let selFriend  = null;
 let menuOpen   = false;
+let activeFilter = 'all'; // 'all' | 'text' | 'image' | 'audio'
 
 const friends = [
   { id:1, name:'محمد أحمد',     av:'م' },
@@ -1338,11 +1452,54 @@ function selF(id) {
   selFriend = friends.find(f=>f.id===id);
   renderFriends();
   renderChatMain();
+  // Close sidebar overlay on mobile after contact selection
+  const sb = document.getElementById('chat-sidebar');
+  if (sb) sb.classList.remove('sb-open');
 }
+
+function toggleSidebar() {
+  const sb = document.getElementById('chat-sidebar');
+  if (sb) sb.classList.toggle('sb-open');
+}
+
+// Wire up the back button inside the sidebar
+document.addEventListener('DOMContentLoaded', function() {
+  const back = document.getElementById('csb-back');
+  if (back) back.addEventListener('click', function() {
+    const sb = document.getElementById('chat-sidebar');
+    if (sb) sb.classList.remove('sb-open');
+  });
+  // Filter pills
+  const filtersEl = document.getElementById('csb-filters');
+  if (filtersEl) filtersEl.addEventListener('click', function(e) {
+    const pill = e.target.closest('.csb-filter-pill');
+    if (!pill) return;
+    filtersEl.querySelectorAll('.csb-filter-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    activeFilter = pill.getAttribute('data-filter') || 'all';
+    renderMsgs();
+  });
+  // New Chat button
+  const newChatBtn = document.getElementById('csb-new-chat');
+  if (newChatBtn) newChatBtn.addEventListener('click', function() {
+    // Clear selection and show the no-selection screen
+    selFriend = null;
+    renderFriends();
+    document.getElementById('chat-main').innerHTML = `
+      <div class="chat-no-sel">
+        <span class="big">💬</span>
+        <p>اختر صديقًا لبدء المحادثة</p>
+      </div>`;
+    // On mobile: show sidebar so user can pick a contact
+    const sb = document.getElementById('chat-sidebar');
+    if (sb) sb.classList.add('sb-open');
+  });
+});
 
 function renderChatMain() {
   document.getElementById('chat-main').innerHTML = `
     <div class="chat-header">
+      <button class="ch-contacts-btn" onclick="toggleSidebar()" aria-label="عرض المحادثات" title="المحادثات">&#9776;</button>
       <div class="ch-info">
         <div class="f-avatar" style="width:32px;height:32px;font-size:13px">${selFriend.av}</div>
         <div>
@@ -1382,11 +1539,14 @@ function clearSel() {
 
 function renderMsgs() {
   const msgs = convos[selFriend.id] || [];
+  const filtered = activeFilter === 'all' ? msgs : msgs.filter(m => m.type === activeFilter);
   const c = document.getElementById('chat-msgs');
   if(!c) return;
-  c.innerHTML = msgs.length
-    ? msgs.map(m => buildBubble(m)).join('')
-    : `<div style="text-align:center;color:var(--text3);padding:30px;font-size:13px">ابدأ المحادثة 👋</div>`;
+  c.innerHTML = filtered.length
+    ? filtered.map(m => buildBubble(m)).join('')
+    : `<div style="text-align:center;color:var(--text3);padding:30px;font-size:13px">${
+        activeFilter === 'all' ? 'ابدأ المحادثة 👋' : 'لا توجد رسائل من هذا النوع'
+      }</div>`;
   c.scrollTop = c.scrollHeight;
 }
 

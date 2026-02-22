@@ -20,6 +20,12 @@
   var MAX_RECORD_MS = 5 * 60 * 1000; // 5 min
   // cachedStream keeps mic open between recordings so browser never re-prompts permission
   var recState = { active: false, recorder: null, stream: null, cachedStream: null, chunks: [], timer: null };
+  // Active message-type filter for the sidebar filter pills
+  var activeFilter = 'all'; // 'all' | 'text' | 'image' | 'audio'
+  // Track whether we are in user-search mode inside the sidebar
+  var searchPanelOpen = false;
+  // Heartbeat interval ref
+  var heartbeatInterval = null;
 
   function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -62,7 +68,24 @@
     if (!me) return [];
     var tid = me.deviceId;
     var av = (me.username && me.username[0]) ? me.username[0] : 'أ';
-    return [{ id: tid, name: 'رسائلي', av: av }];
+    var result = [{ id: tid, name: 'رسائلي', av: av, online: true }];
+    // Add contacts from conversations that have registry entries
+    if (window.UserRegistry) {
+      var convoKeys = Object.keys(convos);
+      convoKeys.forEach(function (cid) {
+        if (cid === tid) return;
+        var regUser = window.UserRegistry.getById(cid);
+        if (regUser) {
+          result.push({
+            id: cid,
+            name: regUser.nickname,
+            av: regUser.nickname[0] || 'أ',
+            online: regUser.online
+          });
+        }
+      });
+    }
+    return result;
   }
 
   function loadConvos() {
@@ -141,8 +164,9 @@
         nameEl.textContent = c.name;
       }
       var status = document.createElement('div');
-      status.className = 'f-status';
-      status.textContent = 'متصل';
+      var isOnline = c.online !== false;
+      status.className = 'f-status' + (isOnline ? ' online' : ' offline');
+      status.textContent = isOnline ? 'متصل' : 'غير متصل';
       wrap.appendChild(nameEl);
       wrap.appendChild(status);
       row.appendChild(avatar);
@@ -169,6 +193,9 @@
     selContact = getContactById(id);
     renderContacts();
     renderMainArea();
+    // Close sidebar overlay on mobile after selecting a contact
+    var sb = document.getElementById('chat-sidebar');
+    if (sb) sb.classList.remove('sb-open');
   }
 
   function clearSel() {
@@ -233,15 +260,21 @@
     var c = document.getElementById('chat-msgs');
     if (!c || !selContact) return;
     var msgs = convos[selContact.id] || [];
+    // Apply sidebar filter pill
+    var filtered = activeFilter === 'all'
+      ? msgs
+      : msgs.filter(function (m) { return m.type === activeFilter; });
     c.textContent = '';
-    if (msgs.length === 0) {
+    if (filtered.length === 0) {
       var empty = document.createElement('div');
       empty.style.cssText = 'text-align:center;color:var(--text3);padding:30px;font-size:13px';
-      empty.textContent = 'ابدأ المحادثة 👋';
+      empty.textContent = activeFilter === 'all'
+        ? '\u0627\u0628\u062f\u0623 \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0629 \uD83D\uDC4B'
+        : '\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0645\u0646 \u0647\u0630\u0627 \u0627\u0644\u0646\u0648\u0639';
       c.appendChild(empty);
     } else {
       var frag = document.createDocumentFragment();
-      msgs.forEach(function (m) { frag.appendChild(createMessageRow(m)); });
+      filtered.forEach(function (m) { frag.appendChild(createMessageRow(m)); });
       c.appendChild(frag);
     }
     c.scrollTop = c.scrollHeight;
@@ -278,6 +311,19 @@
     }
     var header = document.createElement('div');
     header.className = 'chat-header';
+
+    // Mobile-only sidebar toggle — hidden via CSS on desktop
+    var contactsBtn = document.createElement('button');
+    contactsBtn.className = 'ch-contacts-btn';
+    contactsBtn.type = 'button';
+    contactsBtn.setAttribute('aria-label', 'عرض المحادثات');
+    contactsBtn.title = 'المحادثات';
+    contactsBtn.innerHTML = '&#9776;';
+    contactsBtn.addEventListener('click', function () {
+      var sb = document.getElementById('chat-sidebar');
+      if (sb) sb.classList.toggle('sb-open');
+    });
+
     var info = document.createElement('div');
     info.className = 'ch-info';
     var av = document.createElement('div');
@@ -300,6 +346,7 @@
     closeBtn.type = 'button';
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', clearSel);
+    header.appendChild(contactsBtn);
     header.appendChild(info);
     header.appendChild(closeBtn);
     main.appendChild(header);
@@ -771,14 +818,23 @@
       return;
     }
     var existing = getChatUser();
-    setChatUser({
-      deviceId: existing ? existing.deviceId : generateUUID(),
-      username: name
-    });
+    var deviceId = existing ? existing.deviceId : generateUUID();
+    // Check for duplicate nickname in registry
+    if (window.UserRegistry && window.UserRegistry.isNicknameTaken(name, deviceId)) {
+      toast('هذا الاسم مستخدم بالفعل، اختر اسمًا آخر', 'err');
+      if (input) input.focus();
+      return;
+    }
+    setChatUser({ deviceId: deviceId, username: name });
+    // Register in the user directory
+    if (window.UserRegistry) {
+      window.UserRegistry.registerUser(deviceId, name);
+    }
     if (window.Modals) window.Modals.close('m-chat-username');
     if (input) input.value = '';
     updateYouLabel();
     openChatPanel();
+    startHeartbeat();
     toast('مرحبًا ' + name + '!', 'ok');
   }
 
@@ -787,6 +843,146 @@
     if (!row) return;
     var id = row.getAttribute('data-contact-id');
     if (id) selectContact(id);
+  }
+
+  /* ── User Search Panel ─────────────────── */
+  function openSearchPanel() {
+    searchPanelOpen = true;
+    var sidebar = document.getElementById('chat-sidebar');
+    if (!sidebar) return;
+    // On mobile, ensure sidebar is visible
+    sidebar.classList.add('sb-open');
+    // Hide normal sidebar content, show search panel
+    var normalContent = sidebar.querySelectorAll('.csb-head, .ch-you-label, .csb-search, .csb-filter-pills, .friends-list, .csb-new-chat-wrap');
+    normalContent.forEach(function (el) { el.style.display = 'none'; });
+    // Remove old search panel if exists
+    var old = sidebar.querySelector('.user-search-panel');
+    if (old) old.remove();
+    // Build search panel
+    var panel = document.createElement('div');
+    panel.className = 'user-search-panel';
+    // Back button
+    var backBtn = document.createElement('button');
+    backBtn.className = 'csb-back-btn';
+    backBtn.type = 'button';
+    backBtn.innerHTML = '← رجوع للمحادثات';
+    backBtn.addEventListener('click', closeSearchPanel);
+    panel.appendChild(backBtn);
+    // Search header
+    var head = document.createElement('div');
+    head.className = 'csb-head';
+    head.innerHTML = '<span>🔍 البحث عن أصدقاء</span>';
+    panel.appendChild(head);
+    // Search input
+    var searchWrap = document.createElement('div');
+    searchWrap.className = 'csb-search';
+    var searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'ابحث باسم المستخدم...';
+    searchInput.id = 'user-search-input';
+    searchInput.addEventListener('input', function () { renderSearchResults(searchInput.value); });
+    searchWrap.appendChild(searchInput);
+    panel.appendChild(searchWrap);
+    // Results area
+    var results = document.createElement('div');
+    results.className = 'user-search-results';
+    results.id = 'user-search-results';
+    panel.appendChild(results);
+    sidebar.appendChild(panel);
+    // Render all users immediately
+    renderSearchResults('');
+    setTimeout(function () { searchInput.focus(); }, 100);
+  }
+
+  function closeSearchPanel() {
+    searchPanelOpen = false;
+    var sidebar = document.getElementById('chat-sidebar');
+    if (!sidebar) return;
+    // Remove search panel
+    var panel = sidebar.querySelector('.user-search-panel');
+    if (panel) panel.remove();
+    // Restore normal sidebar content
+    var normalContent = sidebar.querySelectorAll('.csb-head, .ch-you-label, .csb-search, .csb-filter-pills, .friends-list, .csb-new-chat-wrap');
+    normalContent.forEach(function (el) { el.style.display = ''; });
+  }
+
+  function renderSearchResults(query) {
+    var results = document.getElementById('user-search-results');
+    if (!results || !window.UserRegistry) return;
+    var me = getChatUser();
+    var selfId = me ? me.deviceId : null;
+    var users = window.UserRegistry.search(query, selfId);
+    results.textContent = '';
+    if (users.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'user-search-empty';
+      empty.textContent = query ? 'لا يوجد مستخدم بهذا الاسم' : 'لا يوجد مستخدمون مسجلون بعد';
+      results.appendChild(empty);
+      return;
+    }
+    users.forEach(function (u) {
+      var row = document.createElement('div');
+      row.className = 'friend';
+      row.setAttribute('data-user-id', u.id);
+      var avatar = document.createElement('div');
+      avatar.className = 'f-avatar';
+      avatar.textContent = u.nickname[0] || 'أ';
+      var wrap = document.createElement('div');
+      var nameEl = document.createElement('div');
+      nameEl.className = 'f-name';
+      if (query) {
+        nameEl.innerHTML = highlightMatch(Utils.esc(u.nickname), query);
+      } else {
+        nameEl.textContent = u.nickname;
+      }
+      var status = document.createElement('div');
+      status.className = 'f-status' + (u.online ? ' online' : ' offline');
+      status.textContent = u.online ? 'متصل' : 'غير متصل';
+      wrap.appendChild(nameEl);
+      wrap.appendChild(status);
+      row.appendChild(avatar);
+      row.appendChild(wrap);
+      row.addEventListener('click', function () {
+        startChatWith(u);
+      });
+      results.appendChild(row);
+    });
+  }
+
+  function startChatWith(user) {
+    if (!user || !user.id) return;
+    // Create conversation if needed
+    if (!convos[user.id]) convos[user.id] = [];
+    saveConvos();
+    // Rebuild contacts to include this user
+    contacts = buildContacts();
+    // Select the contact
+    var contact = contacts.find(function (c) { return c.id === user.id; });
+    if (!contact) {
+      // Add to contacts if not yet present
+      contact = { id: user.id, name: user.nickname, av: user.nickname[0] || 'أ', online: user.online };
+      contacts.push(contact);
+    }
+    selContact = contact;
+    closeSearchPanel();
+    renderContacts();
+    renderMainArea();
+    // Close sidebar on mobile
+    var sb = document.getElementById('chat-sidebar');
+    if (sb) sb.classList.remove('sb-open');
+    toast('تم فتح محادثة مع ' + user.nickname, 'ok');
+  }
+
+  /* ── Heartbeat ─────────────────────────── */
+  function startHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    var me = getChatUser();
+    if (!me || !window.UserRegistry) return;
+    window.UserRegistry.heartbeat(me.deviceId);
+    heartbeatInterval = setInterval(function () {
+      var me2 = getChatUser();
+      if (me2 && window.UserRegistry) window.UserRegistry.heartbeat(me2.deviceId);
+    }, 60000); // every 60s
   }
 
   function init() {
@@ -806,9 +1002,60 @@
       if (e.key === 'Enter') { e.preventDefault(); submitUsername(); }
     });
     setupFilePicks();
+    // Mobile sidebar back/close button
+    var csbBack = document.getElementById('csb-back');
+    if (csbBack) csbBack.addEventListener('click', function () {
+      var sb = document.getElementById('chat-sidebar');
+      if (sb) sb.classList.remove('sb-open');
+    });
+    // Filter pills — delegate from sidebar container
+    var filtersEl = document.getElementById('csb-filters');
+    if (filtersEl) filtersEl.addEventListener('click', function (e) {
+      var pill = e.target.closest('.csb-filter-pill');
+      if (!pill) return;
+      filtersEl.querySelectorAll('.csb-filter-pill').forEach(function (p) { p.classList.remove('active'); });
+      pill.classList.add('active');
+      activeFilter = pill.getAttribute('data-filter') || 'all';
+      renderMessages();
+    });
+    // New Chat button — opens user search panel (or username modal if not registered)
+    var newChatBtn = document.getElementById('csb-new-chat');
+    if (newChatBtn) newChatBtn.addEventListener('click', function () {
+      if (!hasChatUser()) {
+        if (window.Modals) window.Modals.open('m-chat-username');
+      } else {
+        openSearchPanel();
+      }
+    });
+    // If user not registered, prompt for username
     if (!hasChatUser()) {
       if (window.Modals) window.Modals.open('m-chat-username');
+    } else {
+      // Re-register existing user on page load & start heartbeat
+      var me = getChatUser();
+      if (me && window.UserRegistry) {
+        window.UserRegistry.registerUser(me.deviceId, me.username);
+        startHeartbeat();
+      }
     }
+    // Listen for registry changes to refresh contacts in real-time
+    if (window.UserRegistry) {
+      window.UserRegistry.onChange(function () {
+        contacts = buildContacts();
+        renderContacts();
+        // Also refresh search results if search panel is open
+        if (searchPanelOpen) {
+          var input = document.getElementById('user-search-input');
+          renderSearchResults(input ? input.value : '');
+        }
+      });
+    }
+    // Mark user offline on page close
+    window.addEventListener('beforeunload', function () {
+      var me = getChatUser();
+      if (me && window.UserRegistry) window.UserRegistry.setOffline(me.deviceId);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+    });
   }
 
   window.Chat = {

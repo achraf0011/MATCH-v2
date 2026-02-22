@@ -76,6 +76,23 @@
   bindLogin();
   bindModalSubmits();
   App.init();
+
+  // Populate subject dropdowns in admin modals
+  (function () {
+    var subjects = Pages.getSubjects ? Pages.getSubjects() : [];
+    var dropdownIds = ['f-vsubject', 'f-psubject', 'f-exsubject', 'f-testsubject'];
+    dropdownIds.forEach(function (id) {
+      var sel = document.getElementById(id);
+      if (!sel) return;
+      subjects.forEach(function (s) {
+        var opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.icon + ' ' + s.name;
+        sel.appendChild(opt);
+      });
+    });
+  })();
+
   Navbar.init();
   Chat.init();
   App.nav('home');

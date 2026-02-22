@@ -7,6 +7,7 @@ window.APP_CONFIG = {
     ADMIN: 'madarik_admin_session',
     CHAT_USER: 'madarik_chat_user',
     CHAT_CONVOS: 'madarik_chat_convos',
+    CHAT_USERS_REGISTRY: 'madarik_users_registry',
     MIC_PERMISSION_DENIED: 'madarik_mic_denied',
     CAMERA_PERMISSION_DENIED: 'madarik_camera_denied',
     VIDEOS: 'madarik_videos',
@@ -40,7 +41,44 @@ window.APP_CONFIG = {
     { id: 'second-bac-physical', file: 'second-bac-physical.html', title: 'الثانية باك - علوم فيزيائية' },
     { id: 'second-bac-life-earth', file: 'second-bac-life-earth.html', title: 'الثانية باك - علوم الحياة والأرض' },
     { id: 'second-bac-math', file: 'second-bac-math.html', title: 'الثانية باك - علوم رياضية' }
-  ]
+  ],
+  /** Subjects per level group — used for sidebar/dropdown filtering */
+  SUBJECTS: {
+    primary: [
+      { id: 'math', name: 'الرياضيات', icon: '📐' },
+      { id: 'arabic', name: 'اللغة العربية', icon: '📖' },
+      { id: 'french', name: 'اللغة الفرنسية', icon: '🇫🇷' },
+      { id: 'islamic', name: 'التربية الإسلامية', icon: '🕌' },
+      { id: 'science', name: 'النشاط العلمي', icon: '🔬' },
+      { id: 'social', name: 'الاجتماعيات', icon: '🌍' }
+    ],
+    middle: [
+      { id: 'math', name: 'الرياضيات', icon: '📐' },
+      { id: 'arabic', name: 'اللغة العربية', icon: '📖' },
+      { id: 'french', name: 'اللغة الفرنسية', icon: '🇫🇷' },
+      { id: 'islamic', name: 'التربية الإسلامية', icon: '🕌' },
+      { id: 'physics', name: 'الفيزياء والكيمياء', icon: '⚗️' },
+      { id: 'life-earth', name: 'علوم الحياة والأرض', icon: '🌱' },
+      { id: 'social', name: 'الاجتماعيات', icon: '🌍' },
+      { id: 'english', name: 'اللغة الإنجليزية', icon: '🇬🇧' },
+      { id: 'info', name: 'المعلوميات', icon: '💻' }
+    ],
+    bac: [
+      { id: 'math', name: 'الرياضيات', icon: '📐' },
+      { id: 'physics', name: 'الفيزياء والكيمياء', icon: '⚗️' },
+      { id: 'life-earth', name: 'علوم الحياة والأرض', icon: '🌱' },
+      { id: 'arabic', name: 'اللغة العربية', icon: '📖' },
+      { id: 'french', name: 'اللغة الفرنسية', icon: '🇫🇷' },
+      { id: 'english', name: 'اللغة الإنجليزية', icon: '🇬🇧' },
+      { id: 'islamic', name: 'التربية الإسلامية', icon: '🕌' },
+      { id: 'philosophy', name: 'الفلسفة', icon: '🧠' }
+    ]
+  },
+  /** Weekly schedule template per level group */
+  SCHEDULE_TEMPLATE: {
+    days: ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+    slots: ['08:00 - 10:00', '10:00 - 12:00', '14:00 - 16:00', '16:00 - 18:00']
+  }
 };
 
 window.APP_CONFIG.getCurrentLevel = function () {
