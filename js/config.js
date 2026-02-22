@@ -1,7 +1,12 @@
 'use strict';
 
-/** App config — credentials, storage keys, security, levels */
+/**
+ * App config — credentials, storage keys, security, levels.
+ * APP_VERSION is set by js/version.js which is loaded first.
+ * To release a new version run: python bump-version.py <N>
+ */
 window.APP_CONFIG = {
+  APP_VERSION: window.APP_VERSION || '3',
   CREDS: { email: 'achraf1258@gmail.com', pass: 'achraf1258' },
   STORAGE_KEYS: {
     ADMIN: 'madarik_admin_session',

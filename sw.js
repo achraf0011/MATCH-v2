@@ -6,9 +6,12 @@
  * Always tries the network first so users receive the latest deployed files
  * immediately. Falls back to cache only when completely offline.
  *
- * Bump CACHE_VERSION on every deploy to evict the previous cache bucket.
+ * ⚠️  DO NOT edit CACHE_VERSION manually.
+ *     Run:  python bump-version.py <new_version>
+ *     That command keeps sw.js, js/version.js, version.json and all HTML
+ *     ?v= query strings in sync automatically.
  */
-var CACHE_VERSION = 'madarik-v2';
+var CACHE_VERSION = 'madarik-v3';  /* ← managed by bump-version.py */
 
 /* Install: activate immediately without waiting for old SW to stop */
 self.addEventListener('install', function () {
